@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+
 import functions_material as rc
+import functions_reinforcement as rf
 
 # PAGE CONFIG
 st.set_page_config(page_title="Spannbett-psz", layout="centered")
@@ -192,7 +194,8 @@ with tab2:
                             min_value=0.,
                             value= 12.00,
                             format="%0.2f")
-        var_height = st.checkbox("Variable height", value=False)
+        var_height = st.checkbox("Variable height", value=False,
+                                 help="Assumption: symmetric beam, sloping both directions from centerpoint towards beam ends. Maximum height at L/2")
         
         if var_height:
             slope = st.number_input("Slope [%]", min_value=0.,
@@ -230,6 +233,12 @@ with tab3:
                                     num_rows='dynamic')
         data_As_comp = df_As_comp.to_numpy()
     
+    # REBAR AREAS AND EFFECTIVE DEPTHS
+    As_tens, z_tens = rf.rebar_area(data_As_tens)
+    d_tens = rf.dtens(h_sub, z_tens)
+    As_comp, z_comp = rf.rebar_area(data_As_comp)
+    d_comp = rf.dcomp(z_comp)
+    
 
     st.divider()
     st.markdown("Prestressing")
@@ -248,15 +257,29 @@ with tab3:
                                     num_rows='fixed',
                                     hide_index=True)
         data_Ap = df_Ap.to_numpy()
+
+        # STRAND AREAS AND EFFECTIVE DEPTHS
+        Ap, z_p = rf.strand_area(data_Ap, Ap_i)
+        d_p = rf.dtens(h_sub, z_p)
     
     with pcol2:
         sig_p0 = st.number_input(r"Prestress (N/mm$^2$)", value=1000, min_value=0, step=50)
         kp_red = st.number_input("Reduction factor for estimated prestress losses", value=0.85, min_value=0., step=0.05)
+        # STRAND EFFECTIVE STRESS AFTER LOSSES & PRE-STRAIN
+        sig_pm = kp_red * sig_p0
+        eps_pm = sig_pm / Ep
+
         concrete_t0 = st.selectbox("Concrete strength at prestress (t0)",
                                     options=concrete_classes,
                                     index=2)
         cement = st.selectbox("Cement type", options= ['R', 'N'], index=0)
         
+        # Concrete properties in temporary conditions
+        fck_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[0]
+        fctm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[4]
+        fcm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[6]
+        Ecm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[5]
+
     with pcol3:
         t0 = st.number_input(r"Time of prestressing ($t_{0}$)", value=3, min_value=0, step=1)
         t1 = st.number_input(r"Time of load application ($t_{1}$)", value=28, min_value=7, step=1)
@@ -264,11 +287,6 @@ with tab3:
         RH_t0 = st.number_input("Humidity in temporary state [%]", value=80, min_value=0, step=5)
         RH_inf = st.number_input("Humidity in final state [%]", value=50, min_value=0, step=5)
 
-# Concrete properties in temporary conditions
-fck_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[0]
-fctm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[4]
-fcm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[6]
-Ecm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[5]
 
 
 # LOADS INPUT---------------------------------------------------------------------------
