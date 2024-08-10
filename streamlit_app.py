@@ -37,7 +37,7 @@ tab1, tab2, tab3,  tab4, tab5 = st.tabs(["MATERIAL",
                                          "LOADS", 
                                          "ANALYSIS RESULTS"])
 
-# MATERIAL INPUT
+# MATERIAL INPUT---------------------------------------------------------------------
 with tab1:
 
     # CONCRETE
@@ -146,7 +146,7 @@ with tab1:
         st.markdown("$E_{p}$"+" = {} N/mm$^2$ (Young modulus)".format(round(Ep, 0)))
 
 
-# GEOMETRY INPUT---------------------------------------------------------------------------
+# GEOMETRY INPUT---------------------------------------------------------------------
 with tab2:
     gcol1, gcol2 = st.columns(2)
     
@@ -215,6 +215,8 @@ with tab2:
     # Gathering cross-section dimensions in a list and converting to [mm]
     cs_dims = [x*10 for x in [h, bw, b_top, t_t1, t_t2, b_bot, t_b1, t_b2, b_top_trapz, h_end]]
 
+
+# REINFORCEMENT & PRESTRESS----------------------------------------------------------
 with tab3:
     rcol1, rcol2 = st.columns(2)
     with rcol1:
@@ -288,5 +290,11 @@ with tab3:
         RH_inf = st.number_input("Humidity in final state [%]", value=50, min_value=0, step=5)
 
 
+# LOADS INPUT------------------------------------------------------------------------
+with tab4:
+    pass
 
-# LOADS INPUT---------------------------------------------------------------------------
+
+# ANALYSIS RESULTS-------------------------------------------------------------------
+with tab5:
+    pass
