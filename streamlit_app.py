@@ -41,7 +41,7 @@ tab1, tab2, tab3,  tab4, tab5 = st.tabs(["MATERIAL",
 with tab1:
 
     # CONCRETE
-    st.subheader("CONCRETE")
+    st.subheader("CONCRETE", divider="gray")
 
     ccol1, ccol2 = st.columns(2)
     with ccol1:
@@ -79,8 +79,7 @@ with tab1:
         st.markdown("$E_{cm}$"+" = {} N/mm$^2$ (Modulus of elasticity, mean value)".format(round(Ecm, 0)))
 
     # REBAR
-    st.divider()
-    st.subheader("REBAR")
+    st.subheader("REBAR", divider="gray")
     scol1, scol2 = st.columns(2)
     
     with scol1:
@@ -111,8 +110,7 @@ with tab1:
 
 
     # PRESTRESSING STRAND
-    st.divider()
-    st.subheader("PRESTRESSING STRAND")
+    st.subheader("PRESTRESSING STRAND", divider="gray")
 
     pcol1, pcol2 = st.columns(2)
     
@@ -190,7 +188,7 @@ with tab2:
 
 
     with gcol2:
-        L = st.number_input("Beam length [m]", 
+        L = st.number_input("Beam length (L) [m]", 
                             min_value=0.,
                             value= 12.00,
                             format="%0.2f")
@@ -204,6 +202,7 @@ with tab2:
             h_end = h - (L*100/2)*(slope/100)
             k_height = 0.85      # interpolation factor between beam end and center
             h_sub = k_height*h + (1-k_height)*h_end
+            st.caption("Height at beam end: h.end = {} cm".format(round(h_end, 1)))
                 
         if CS_shape == "I":
             web_widening = st.checkbox("Widened web at beam end", value=False)
@@ -220,20 +219,22 @@ with tab2:
 with tab3:
     rcol1, rcol2 = st.columns(2)
     with rcol1:
-        st.markdown("Tensile reinforcement (bottom)")
-        df_As_tens = st.data_editor(pd.DataFrame(data= np.array([[20, 2, 45]]),
-                                                columns=["d [mm]", "pcs", "zi [mm]"],
-                                                index=[0]),
-                                    num_rows='dynamic')
-        data_As_tens = df_As_tens.to_numpy()
+        st.markdown("Tensile reinforcement (bottom)",
+                    help="You can add new rows with the '+' button")
+        data_As_tens = st.data_editor(pd.DataFrame(np.array([[20, 2, 45]]),
+                                                   columns=[" d [mm]", "pcs", "zi [mm]"]),
+                                     num_rows='dynamic',
+                                     hide_index=True)
+        data_As_tens = data_As_tens.to_numpy()
 
     with rcol2:
-        st.markdown("Compressive reinforcement (top)")
-        df_As_comp = st.data_editor(pd.DataFrame(data= np.array([[16, 2, 45]]),
-                                                columns=["d [mm]", "pcs", "zi [mm]"],
-                                                index=[0]),
-                                    num_rows='dynamic')
-        data_As_comp = df_As_comp.to_numpy()
+        st.markdown("Compressive reinforcement (top)",
+                    help="You can add new rows with the '+' button")
+        data_As_comp = st.data_editor(pd.DataFrame(np.array([[16, 2, 45]]),
+                                                   columns=[" d [mm]", "pcs", "zi [mm]"]),
+                                      num_rows='dynamic',
+                                      hide_index=True)
+        data_As_comp = data_As_comp.to_numpy()
     
     # REBAR AREAS AND EFFECTIVE DEPTHS
     As_tens, z_tens = rf.rebar_area(data_As_tens)
@@ -242,8 +243,7 @@ with tab3:
     d_comp = rf.dcomp(z_comp)
     
 
-    st.divider()
-    st.markdown("Prestressing")
+    st.subheader("Prestressing", divider="gray")
     pcol1, pcol2, pcol3 = st.columns(3)
     with pcol1:
         df_Ap = st.data_editor(pd.DataFrame(data= np.array([[100, 3],
@@ -251,14 +251,12 @@ with tab3:
                                                             [180, 0],
                                                             [220, 0],
                                                             [260, 0],
-                                                            [300, 0],
-                                                            [340, 0],
-                                                            [380, 0]]),
-                                                columns=["zi [mm]", "pcs"],
-                                                index=np.arange(0,8,1)),
-                                    num_rows='fixed',
-                                    hide_index=True)
+                                                            [300, 0]]),
+                                            columns=["zi [mm]", "pcs"]),
+                               num_rows='dynamic',
+                               hide_index=True)
         data_Ap = df_Ap.to_numpy()
+
 
         # STRAND AREAS AND EFFECTIVE DEPTHS
         Ap, z_p = rf.strand_area(data_Ap, Ap_i)
@@ -283,17 +281,109 @@ with tab3:
         Ecm_t0 = rc.concrete_props(concrete_t0, alpha_cc, pfactor_rc, df_concrete)[5]
 
     with pcol3:
-        t0 = st.number_input(r"Time of prestressing ($t_{0}$)", value=3, min_value=0, step=1)
-        t1 = st.number_input(r"Time of load application ($t_{1}$)", value=28, min_value=7, step=1)
-        t_inf = st.number_input(r"Design working life ($t_{inf}$)", value=18250, min_value=100, step=50)
+        t0 = st.number_input(r"Time of prestressing ($t_{0}$) [days]", value=3, min_value=0, step=1)
+        t1 = st.number_input(r"Time of load application ($t_{1}$) [days]", value=28, min_value=7, step=1)
+        t_inf = st.number_input(r"Design working life ($t_{inf}$) [days]", value=18250, min_value=100, step=50,
+                                help="default: 50 years ~ 18250 days")
         RH_t0 = st.number_input("Humidity in temporary state [%]", value=80, min_value=0, step=5)
         RH_inf = st.number_input("Humidity in final state [%]", value=50, min_value=0, step=5)
 
 
 # LOADS INPUT------------------------------------------------------------------------
 with tab4:
-    pass
+    st.subheader("G1 - Beam self-weight", divider="gray")
+    st.markdown("Automatically calculated from geometry and material.")
 
+# PERMANENT LOADS
+    st.subheader("G2 - Permanent loads", divider="gray")
+    st.markdown("Distributed loads")
+    df_G2_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 3, 3]]),
+                                                  columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
+                                     num_rows='dynamic', key="G2LL")
+    G2_LineLoads = df_G2_LineLoads.to_numpy()
+
+    st.markdown("Point loads")
+    df_G2_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
+                                                   columns=["xFromStart [m]", "F [kN]"]),
+                                      num_rows='dynamic', key="G2PL")
+    G2_PointLoads = df_G2_LineLoads.to_numpy()
+
+# IMPOSED LOADS
+    st.subheader("Q - Imposed live loads", divider="gray")
+    st.markdown("Distributed loads")
+    df_Q_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 3, 3]]),
+                                                 columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
+                                    num_rows='dynamic', key="QLL")
+    Q_LineLoads = df_Q_LineLoads.to_numpy()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("Point loads")
+        df_Q_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
+                                                    columns=["xFromStart [m]", "F [kN]"]),
+                                        num_rows='dynamic', key="QPL")
+        Q_PointLoads = df_Q_PointLoads.to_numpy()
+    
+    with c2:
+        st.markdown("Live load coefficients")
+        df_Q_coeffs = st.data_editor(pd.DataFrame(data= np.array([[1.0, 0.9, 0.8]]),
+                                                  columns=["psi0", "psi1", "psi2"]),
+                                        num_rows='fixed', key="QCOEFF",
+                                        hide_index = True)
+        Q_coeffs = df_Q_coeffs.to_numpy()
+    
+# SNOW LOADS
+    st.subheader("S - Snow loads", divider="gray")
+    st.markdown("Distributed loads")
+    df_S_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 6, 6]]),
+                                                 columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
+                                    num_rows='dynamic', key="SLL")
+    S_LineLoads = df_S_LineLoads.to_numpy()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("Point loads")
+        df_S_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
+                                                    columns=["xFromStart [m]", "F [kN]"]),
+                                        num_rows='dynamic', key="SPL")
+        S_PointLoads = df_S_PointLoads.to_numpy()
+    
+    with c2:
+        st.markdown("Snow load coefficients")
+        df_S_coeffs = st.data_editor(pd.DataFrame(data= np.array([[0.5, 0.2, 0]]),
+                                                  columns=["psi0", "psi1", "psi2"]),
+                                        num_rows='fixed', key="SCOEFF",
+                                        hide_index = True)
+        S_coeffs = df_S_coeffs.to_numpy()   
+
+# WIND LOADS
+    st.subheader("W - Wind loads", divider="gray")
+    st.markdown("Distributed loads")
+    df_W_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 2.4, 2.4]]),
+                                                 columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
+                                    num_rows='dynamic', key="WLL")
+    W_LineLoads = df_W_LineLoads.to_numpy()
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("Point loads")
+        df_W_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
+                                                    columns=["xFromStart [m]", "F [kN]"]),
+                                        num_rows='dynamic', key="WPL")
+        W_PointLoads = df_W_PointLoads.to_numpy()
+    
+    with c2:
+        st.markdown("Wind load coefficients")
+        df_W_coeffs = st.data_editor(pd.DataFrame(data= np.array([[0.6, 0.2, 0]]),
+                                                  columns=["psi0", "psi1", "psi2"]),
+                                        num_rows='fixed', key="WCOEFF",
+                                        hide_index = True)
+        W_coeffs = df_W_coeffs.to_numpy()
+
+# DEFLECTION CRITERIA
+    st.subheader("Deflection criteria", divider="gray")
+    d_crit = st.number_input("Deflection criteria (L/x)", value=300, min_value=0, step=50)
+    st.write("$u_{z,max}$ = " + "{} mm".format(round(L*1000/d_crit, 0)))
 
 # ANALYSIS RESULTS-------------------------------------------------------------------
 with tab5:
