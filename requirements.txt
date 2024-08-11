@@ -3,7 +3,7 @@ numpy
 pandas
 matplotlib
 plotly
-PyniteFEA == 0.0.81
+PyniteFEA == 0.0.94
 scipy
 docxtpl
 jinja2

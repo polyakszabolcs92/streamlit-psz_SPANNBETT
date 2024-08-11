@@ -4,6 +4,7 @@ import numpy as np
 
 import functions_material as rc
 import functions_reinforcement as rf
+import functions_cross_section as cs
 
 # PAGE CONFIG
 st.set_page_config(page_title="Spannbett-psz", layout="centered")
@@ -31,11 +32,13 @@ with st.popover("Project data"):
     designer = st.text_input("Designer", placeholder="Type designer name here")
 
 
-tab1, tab2, tab3,  tab4, tab5 = st.tabs(["MATERIAL", 
-                                         "GEOMETRY", 
-                                         "REINFORCEMENT & PRESTRESS", 
-                                         "LOADS", 
-                                         "ANALYSIS RESULTS"])
+tab1, tab2, tab3,  tab4, tab5, tab6, tab7 = st.tabs(["MATERIAL", 
+                                                    "GEOMETRY", 
+                                                    "REINFORCEMENT & PRESTRESS", 
+                                                    "LOADS", 
+                                                    "ANALYSIS",
+                                                    "ULS CHECK",
+                                                    "SLS CHECK"])
 
 # MATERIAL INPUT---------------------------------------------------------------------
 with tab1:
@@ -214,6 +217,14 @@ with tab2:
     # Gathering cross-section dimensions in a list and converting to [mm]
     cs_dims = [x*10 for x in [h, bw, b_top, t_t1, t_t2, b_bot, t_b1, t_b2, b_top_trapz, h_end]]
 
+    # CROSS-SECTION AREAS
+    Ac = cs.cs_area_concrete(CS_shape, h, bw, cs_dims, False)
+    Ac_end = cs.cs_area_concrete(CS_shape, h_end, bw, cs_dims, False)
+    if CS_shape == 'I':
+        Ac_shear = cs.cs_area_concrete(CS_shape, h_end, bw_end, cs_dims, web_widening)
+    else:
+        Ac_shear = cs.cs_area_concrete(CS_shape, h_end, bw_end, cs_dims, False)
+
 
 # REINFORCEMENT & PRESTRESS----------------------------------------------------------
 with tab3:
@@ -247,7 +258,7 @@ with tab3:
     pcol1, pcol2, pcol3 = st.columns(3)
     with pcol1:
         df_Ap = st.data_editor(pd.DataFrame(data= np.array([[100, 3],
-                                                            [140, 0],
+                                                            [140, 3],
                                                             [180, 0],
                                                             [220, 0],
                                                             [260, 0],
@@ -261,12 +272,18 @@ with tab3:
         # STRAND AREAS AND EFFECTIVE DEPTHS
         Ap, z_p = rf.strand_area(data_Ap, Ap_i)
         d_p = rf.dtens(h_sub, z_p)
+        # Prestress degree
+        khi = np.sum(Ap*fpd) / (np.sum(Ap*fpd) + np.sum(As_tens*fyd))
+        st.markdown("Degree of prestressing: {}".format(round(khi, 2)))
     
     with pcol2:
-        sig_p0 = st.number_input(r"Prestress (N/mm$^2$)", value=1000, min_value=0, step=50)
-        kp_red = st.number_input("Reduction factor for estimated prestress losses", value=0.85, min_value=0., step=0.05)
+        sig_p0 = st.number_input(r"Initial prestress ($\sigma_{p0}$) [N/mm$^2$]", value=1000, min_value=0, step=50)
+        kp_red = st.number_input("Reduction factor (prestress losses)", value=0.85, min_value=0., step=0.05,
+                                 help="Estimated reduction factor for the consideration of prestress losses")
         # STRAND EFFECTIVE STRESS AFTER LOSSES & PRE-STRAIN
         sig_pm = kp_red * sig_p0
+        st.caption("Prestress after losses ($\sigma_{pm}$) [N/mm$^2$]")
+        st.markdown(round(sig_pm, 2))
         eps_pm = sig_pm / Ep
 
         concrete_t0 = st.selectbox("Concrete strength at prestress (t0)",
@@ -285,24 +302,47 @@ with tab3:
         t1 = st.number_input(r"Time of load application ($t_{1}$) [days]", value=28, min_value=7, step=1)
         t_inf = st.number_input(r"Design working life ($t_{inf}$) [days]", value=18250, min_value=100, step=50,
                                 help="default: 50 years ~ 18250 days")
-        RH_t0 = st.number_input("Humidity in temporary state [%]", value=80, min_value=0, step=5)
-        RH_inf = st.number_input("Humidity in final state [%]", value=50, min_value=0, step=5)
+        RH_t0 = st.number_input("Rel. humidity in temporary state [%]", value=80, min_value=0, step=5)
+        RH_inf = st.number_input("Rel. humidity in final state [%]", value=50, min_value=0, step=5)
 
 
 # LOADS INPUT------------------------------------------------------------------------
 with tab4:
+
+    help_text_lineloads = """
+    xStart: 'x' coordinate of the start of the distributed load, 
+            from left beam end
+    xEnd: 'x' coordinate of the end of the distributed load, 
+          from left beam end
+    qStart: load value at the start of the distributed load. 
+            'Downwards' direction is positive.
+    qEnd: load value at the end of the distributed load. 
+          'Downwards' direction is positive.
+    """
+
+    help_text_pointloads = """
+    xFromStart: 'x' coordinate of the concentrated force, 
+                from left beam end
+    F: load value of concentrated force. 
+       Only 'FZ' component is applicable. 
+       'Downwards' direction is positive.
+    """
+
+# SELF-WEIGHT
     st.subheader("G1 - Beam self-weight", divider="gray")
     st.markdown("Automatically calculated from geometry and material.")
 
 # PERMANENT LOADS
     st.subheader("G2 - Permanent loads", divider="gray")
-    st.markdown("Distributed loads")
+    st.markdown("Distributed loads",
+                help=help_text_lineloads)
     df_G2_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 3, 3]]),
                                                   columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
                                      num_rows='dynamic', key="G2LL")
     G2_LineLoads = df_G2_LineLoads.to_numpy()
 
-    st.markdown("Point loads")
+    st.markdown("Point loads",
+                help=help_text_pointloads)
     df_G2_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
                                                    columns=["xFromStart [m]", "F [kN]"]),
                                       num_rows='dynamic', key="G2PL")
@@ -310,7 +350,8 @@ with tab4:
 
 # IMPOSED LOADS
     st.subheader("Q - Imposed live loads", divider="gray")
-    st.markdown("Distributed loads")
+    st.markdown("Distributed loads",
+                help=help_text_lineloads)
     df_Q_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 3, 3]]),
                                                  columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
                                     num_rows='dynamic', key="QLL")
@@ -318,7 +359,8 @@ with tab4:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("Point loads")
+        st.markdown("Point loads",
+                    help=help_text_pointloads)
         df_Q_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
                                                     columns=["xFromStart [m]", "F [kN]"]),
                                         num_rows='dynamic', key="QPL")
@@ -334,7 +376,8 @@ with tab4:
     
 # SNOW LOADS
     st.subheader("S - Snow loads", divider="gray")
-    st.markdown("Distributed loads")
+    st.markdown("Distributed loads",
+                help=help_text_lineloads)
     df_S_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 6, 6]]),
                                                  columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
                                     num_rows='dynamic', key="SLL")
@@ -342,7 +385,8 @@ with tab4:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("Point loads")
+        st.markdown("Point loads",
+                    help=help_text_pointloads)
         df_S_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
                                                     columns=["xFromStart [m]", "F [kN]"]),
                                         num_rows='dynamic', key="SPL")
@@ -358,7 +402,8 @@ with tab4:
 
 # WIND LOADS
     st.subheader("W - Wind loads", divider="gray")
-    st.markdown("Distributed loads")
+    st.markdown("Distributed loads",
+                help=help_text_lineloads)
     df_W_LineLoads = st.data_editor(pd.DataFrame(data= np.array([[0, L, 2.4, 2.4]]),
                                                  columns=["xStart [m]", "xEnd [m]", "qStart [kN/m]", "qEnd[kN/m]"]),
                                     num_rows='dynamic', key="WLL")
@@ -366,7 +411,8 @@ with tab4:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("Point loads")
+        st.markdown("Point loads",
+                    help=help_text_pointloads)
         df_W_PointLoads = st.data_editor(pd.DataFrame(data= np.array([[0, 0]]),
                                                     columns=["xFromStart [m]", "F [kN]"]),
                                         num_rows='dynamic', key="WPL")
@@ -382,8 +428,13 @@ with tab4:
 
 # DEFLECTION CRITERIA
     st.subheader("Deflection criteria", divider="gray")
-    d_crit = st.number_input("Deflection criteria (L/x)", value=300, min_value=0, step=50)
-    st.write("$u_{z,max}$ = " + "{} mm".format(round(L*1000/d_crit, 0)))
+    dcol1, dcol2 = st.columns(2, gap="large")
+    with dcol1:
+        d_crit = st.number_input("Deflection criteria (L/x)", value=300, min_value=0, step=50)
+    with dcol2:
+        st.caption("Allowed deflection")
+        st.markdown("$u_{z,max}$ = " + "{} mm".format(round(L*1000/d_crit, 0)))
+
 
 # ANALYSIS RESULTS-------------------------------------------------------------------
 with tab5:
